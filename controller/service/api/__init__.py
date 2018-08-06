@@ -28,6 +28,7 @@ try:
     port = config.getint("general", "port")
     actuator_plugins = config.get('general', 'actuator_plugins').split(',')
     metric_source_plugins = config.get('general', 'metric_source_plugins').split(',')
+    load_balancer_url = config.get("general", "load_balancer_url")
 
     """ Validate if really exists a section to listed plugins """
     for plugin in actuator_plugins:

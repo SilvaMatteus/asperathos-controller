@@ -55,7 +55,8 @@ class GenericController(Controller):
             self.metric_source_type, plugin_info)
 
         # Gets a new actuator plugin using the given name
-        actuator = ActuatorBuilder().get_actuator(self.actuator_type)
+#       actuator = ActuatorBuilder().get_actuator(self.actuator_type)
+        actuator = None
 
         """ The alarm here is responsible for deciding whether to scale up
             or down, or even do nothing """
@@ -73,6 +74,7 @@ class GenericController(Controller):
                             (self.application_id))
 
             try:
+                print "TO AQUI"
                 self.alarm.check_application_state()
             except MetricNotFoundException:
                 self.logger.log("No metrics available")

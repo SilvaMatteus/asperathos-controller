@@ -14,9 +14,10 @@
 # limitations under the License.
 
 from controller.utils.logger import ScalingLog
+from controller.service import api
 import datetime
 import time
-
+import requests
 
 """ This class contains the logic used to adjust the amount of resources
     allocated to applications """
@@ -31,12 +32,10 @@ class GenericAlarm:
         self.actuator = actuator
         self.trigger_down = trigger_down
         self.trigger_up = trigger_up
-        self.min_cap = min_cap
-        self.max_cap = max_cap
         self.metric_rounding = metric_rounding
-        self.actuation_size = actuation_size
         self.application_id = application_id
         self.instances = instances
+        self.load_balancer_url = api.load_balancer_url
 
         self.logger = ScalingLog("%s.generic.alarm.log" % (application_id),
                                  "controller.log",
@@ -73,22 +72,13 @@ class GenericAlarm:
             """ Check if the metric is new by comparing the timestamps of the
                 current metric and most recent metric """
             if self._check_measurements_are_new(error_timestamp):
-                self._scale_down(error, self.instances)
+                print "TO NO ALARME"
+                
+		self._scale_down(error, self.instances)
                 self._scale_up(error, self.instances)
-
-                if self.cap != -1:
-                    self.cap_logger.log("%.0f|%s|%s"
-                                        % (time.time(),
-                                           str(self.application_id),
-                                           str(self.cap)))
-
-                    print("%.0f|%s|%s" % (time.time(),
-                                          str(self.application_id),
-                                          str(self.cap)))
 
                 self.last_error = error
                 self.last_error_timestamp = error_timestamp
-
             else:
                 self.last_action += " Could not acquire more recent metrics"
                 self.logger.log("Could not acquire more recent metrics")
@@ -106,24 +96,17 @@ class GenericAlarm:
         """
 
         # If error is positive and its absolute value is too high, scale down
-        if error > 0 and error >= self.trigger_down:
+        if error > 0:
+            print "TO NO SCALE DOWN"
             self.logger.log("Scaling down")
             self.last_action = "Getting allocated resources"
+	    if  error < 0.1:
+		requests.post(self.load_balancer_url + "/down", json={"vm_number": 1})
+	    elif error < 0.2:
+		requests.post(self.load_balancer_url + "/down", json={"vm_number": 2})
+	    else:
+		requests.post(self.load_balancer_url + "/down", json={"vm_number": 3})
 
-            # Get current CPU cap
-            cap = self.actuator.get_allocated_resources_to_cluster(instances)
-            new_cap = max(cap - self.actuation_size, self.min_cap)
-
-            self.logger.log("Scaling from %d to %d" % (cap, new_cap))
-            self.last_action = "Scaling from %d to %d" % (cap, new_cap)
-
-            # Currently, we use the same cap for all the vms
-            cap_instances = {instance: new_cap for instance in instances}
-
-            # Set the new cap
-            self.actuator.adjust_resources(cap_instances)
-
-            self.cap = new_cap
 
     def _scale_up(self, error, instances):
         """
@@ -133,24 +116,16 @@ class GenericAlarm:
         """
 
         # If error is negative and its absolute value is too high, scale up
-        if error < 0 and abs(error) >= self.trigger_up:
+        if error < 0:
+            print "TO NO SCALE UP"
             self.logger.log("Scaling up")
             self.last_action = "Getting allocated resources"
-
-            # Get current CPU cap
-            cap = self.actuator.get_allocated_resources_to_cluster(instances)
-            new_cap = min(cap + self.actuation_size, self.max_cap)
-
-            self.logger.log("Scaling from %d to %d" % (cap, new_cap))
-            self.last_action = "Scaling from %d to %d" % (cap, new_cap)
-
-            # Currently, we use the same cap for all the vms
-            cap_instances = {instance: new_cap for instance in instances}
-
-            # Set the new cap
-            self.actuator.adjust_resources(cap_instances)
-
-            self.cap = new_cap
+	    if error > -0.1:
+		requests.post(self.load_balancer_url + "/up", json={"vm_number": 1})
+	    elif error > -0.2:
+		requests.post(self.load_balancer_url + "/up",json={"vm_number": 2})
+	    else:
+		requests.post(self.load_balancer_url+ "/up",json={"vm_number": 3})
 
     def _get_error(self, application_id):
         error_measurement = self.metric_source.get_most_recent_value(
